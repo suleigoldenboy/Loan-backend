@@ -11,12 +11,14 @@ use App\Models\Admin\Branch;
 use App\Models\Loan\Product;
 use App\Models\Loan\Loan;
 use App\Models\Employee\User;
+use App\Models\HRManagement\Employee; 
 use App\Models\Customer\Customer_guarantors;
 use App\Http\Helpers\AdminHelper;
-use App\Models\HRManagement\Employee;
+use Hash;
 use Auth;
 use File;
 use Session;
+use DB;
 
 class CustomerController extends Controller
 {
@@ -25,13 +27,84 @@ class CustomerController extends Controller
      *
      * @return \Illuminate\Http\Response
      */
-    public function index()
+     public function index(Request $request, Customer $cus)
     {
         try{
+            
+            
+             $data = array();
+             //Check if reques
+         if (count($request->all())) {
+             //$cus = $cus->newQuery()->where('status','skjhdskjdhks');
+             $cus = Customer::query()->where('status', '=', 'active');
 
-            $data = Customer::orderBy('id','DESC')->get();
+            // Search by customer code
+            if (isset($request->customer_id)) { 
+                $cus->where('id', $request->customer_id);
+            }
+            // Search by loan officer
+            if (isset($request->loan_officer_id)) { 
+                $cus->where('loan_officer_id', $request->loan_officer_id);
+            }
+            // Search by branch
+            if (isset($request->branch_id)) { 
+                $cus->where('branch_id', $request->branch_id);
+            }
+            //Search by email
+            if (isset($request->email)) { 
+                $cus->where('email', $request->email);
+            }
+            //Search by customer phone number
+             if (isset($request->phone_number)) { 
+                $cus->where('phone_number', $request->phone_number);
+             }
+            //Search by customer name
+            if (isset($request->c_name)) { 
+                 $cus->where('first_name', 'LIKE', "%$request->c_name%");
+                 $cus->orWhere('last_name', 'LIKE', "%$request->c_name%");
+                 $cus->orWhere('other_name', 'LIKE', "%$request->c_name%");
+            }
+            // Search by status
+            if (isset($request->status)) { 
+                $cus->where('status', $request->status);
+            }
+            // Get the results and return them.
+            $data =  $cus->get();
+            
+           }else{
+                $data = array();
+           }
+          
+          
 
-            return view('admin.customer.index', compact('data'));
+            //$data = Customer::orderBy('id','DESC')->get();
+            $branches = Branch::get();
+            $loan_officers = Employee::get();
+            $customers = Customer::get();
+
+            return view('admin.customer.index', compact('data','branches','loan_officers','customers'));
+
+        }catch (Exception $e) {
+            return back();
+        }
+    }
+     /**
+     * Display a listing of the resource.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function incompleteReg()
+    {
+        
+        try{
+            
+            $data = array();
+            if(Auth::user()->role_id == 5){
+                 $data = Customer::where('registration_step_status', '!=', 'complete')->orderBy('id','DESC')->get();
+            }else{
+                 $data = Customer::where('created_by',Auth::user()->id)->where('registration_step_status', '!=', 'complete')->orderBy('id','DESC')->get();
+            }
+            return view('admin.customer.create.in-complete', compact('data'));
 
         }catch (Exception $e) {
             return back();
@@ -43,14 +116,14 @@ class CustomerController extends Controller
      *
      * @return \Illuminate\Http\Response
      */
-    public function incompleteReg()
+    public function contact()
     {
         
         try{
 
-            $data = Customer::where('registration_step_status', '!=', 'complete')->orderBy('id','DESC')->get();
+            $data = Customer::where('status', '=', 'active')->orderBy('id','DESC')->get();
 
-            return view('admin.customer.create.in-complete', compact('data'));
+            return view('admin.customer.contact', compact('data'));
 
         }catch (Exception $e) {
             return back();
@@ -69,15 +142,25 @@ class CustomerController extends Controller
             $request->session()->put('customer_registration_id', $request->id);
             
             if($request->type == "general_info"){
+
                 return redirect('customer/create'); 
+
             }else if($request->type == "employement"){
+
                 return redirect('customer/create/employment');
+
             }else if($request->type == "guarantor"){
+               
                 return redirect('customer/create/guarantor');
+
             }else if($request->type == "loan"){
+
                 return redirect('customer/create/loan');
+               
             }else if($request->type == "files"){
+
                 return redirect('customer/create/file');
+               
             }
             
             Session::flash('errorMessage', "Proccess not found.....");
@@ -95,6 +178,7 @@ class CustomerController extends Controller
      */
     public function create(Request $request)
     {
+        
         try{
 
             $branches = Branch::get();
@@ -117,9 +201,9 @@ class CustomerController extends Controller
      * @return \Illuminate\Http\Response
      */
     public function store(Request $request)
-    {
-        try{
-
+    {  
+        try{ 
+      
             //Check if customer exist
             $customer_exist_id = $request->session()->get('customer_registration_id');
             $customer = Customer::where('id',$customer_exist_id)->first();
@@ -139,8 +223,9 @@ class CustomerController extends Controller
                 $_cus->other_name = $request->other_name;
                 $_cus->username = $request->email;
                 $_cus->email = $request->email;
-                $_cus->password = '12323';
+                $_cus->password = Hash::make('secret');
                 $_cus->phone_number = $request->phone_number;
+                $_cus->address = $request->address;
                 $_cus->uuid = random_int(1, 98898);
                 $_cus->bvn_phone_number = $request->phone_number;
                 $_cus->email_verified_at = $request->email_verified_at;
@@ -162,13 +247,15 @@ class CustomerController extends Controller
                 $_cus->id_card_type = $request->id_card_type;
                 $_cus->id_card_number = $request->id_card_number;
                 $_cus->registration_step_status = 'general_info';
+                $_cus->status = 'pending';
                 $_cus->created_by = Auth::user()->id;
                 $_cus->save();
                 
                 $request->session()->put('customer_registration_id', $_cus->id);
                 //Save audit trail
-                AdminHelper::audit_trail('customer','General information created',$_cus->id);
+                //AdminHelper::audit_trail('customer','General information created',$_cus->id);
             }else{
+                
                 //Update Customer Information
                 $_cus = Customer::findOrFail($customer_exist_id);
                 $_cus->loan_officer_id = $request->loan_officer_id;
@@ -178,23 +265,26 @@ class CustomerController extends Controller
                 $_cus->other_name = $request->other_name;
                 $_cus->username = $request->email;
                 $_cus->email = $request->email;
-                $_cus->password = '12323';
+                $_cus->password = Hash::make('secret');;
                 $_cus->phone_number = $request->phone_number;
+                $_cus->address = $request->address;
                 $_cus->uuid = random_int(1, 98898);
                 $_cus->bvn_phone_number = $request->phone_number;
                 $_cus->email_verified_at = $request->email_verified_at;
                 $_cus->bvn_verified = 0;
                 $_cus->name_is_verified = $request->name_is_verified;
                 $profilpic = '';
-                if($request->hasFile('avatar')){
-                $profilpic = time().'.'.request()->avatar->getClientOriginalExtension();
-                request()->avatar->move(public_path('customerfiles/profilepicture/'), $profilpic);
-                }
-                $image_path1 = "customerfiles/profilepicture".$request->old_avatar;  
+                if($request->hasFile('new_avatar')){
+                    
+                $profilpic = time().'.'.request()->new_avatar->getClientOriginalExtension();
+                request()->new_avatar->move(public_path('customerfiles/profilepicture/'), $profilpic);
+                 $image_path1 = "customerfiles/profilepicture".$request->old_avatar;  
                  if(File::exists($image_path1)) {
                     File::delete($image_path1);
                 }
                 $_cus->avatar = $profilpic;
+                
+                }
                 $_cus->marital_status = $request->marital_status;
                 $_cus->religion = $request->religion;
                 $_cus->religion_address = $request->religion_address;
@@ -208,14 +298,15 @@ class CustomerController extends Controller
                 $_cus->save();
                 
                 //Save audit trail
-                AdminHelper::audit_trail('customer','General information updated during registration',$_cus->id);
+                //AdminHelper::audit_trail('customer','General information updated during registration',$_cus->id);
           
             }
-          
+           
              Session::flash('successMessage', "General information created successful");
             return redirect('customer/create/employment');
 
         }catch (Exception $e) {
+           
            return back();
        }
     }
@@ -259,7 +350,6 @@ class CustomerController extends Controller
                     $_cus = new CustomerEmployment();
                     $_cus->customer_id = $request->customer_id;
                     $_cus->bvn = $request->bvn;
-                    $_cus->income = $request->income;
                     $_cus->employment_status = $request->employment_status;
                     $_cus->business_name = $request->business_name;
                     $_cus->business_state = $request->business_state;
@@ -286,6 +376,7 @@ class CustomerController extends Controller
                     $_cus->salary_account_name = $request->salary_account_name;
                     $_cus->salary_pay_day = $request->salary_pay_day;
                     $_cus->employer_phone_number = $request->employer_phone_number;
+                    $_cus->employer_name = $request->employer_name;
                     $_cus->employer_email = $request->employer_email;
 
                     $_cus->name_of_institution_retired_from = $request->name_of_institution_retired_from;
@@ -321,13 +412,13 @@ class CustomerController extends Controller
 
                     $request->session()->put('customer_employment_registration_id', $_cus->id);
     
-                    AdminHelper::audit_trail('customer','Employment information created',$_cus->id);
+                    //AdminHelper::audit_trail('customer','Employment information created',$_cus->id);
                 }else{
                     //Update Customer Information
                    // $_cus = CustomerEmployment::findOrFail($customer_exist_id);
                     $_cus = CustomerEmployment::where('customer_id',$customer_exist_id)->first();
                     $_cus->bvn = $request->bvn;
-                    $_cus->income = $request->income;
+                    //$_cus->income = $request->income;
                     $_cus->employment_status = $request->employment_status;
                     $_cus->business_name = $request->business_name;
                     $_cus->business_state = $request->business_state;
@@ -354,6 +445,7 @@ class CustomerController extends Controller
                     $_cus->salary_account_name = $request->salary_account_name;
                     $_cus->salary_pay_day = $request->salary_pay_day;
                     $_cus->employer_phone_number = $request->employer_phone_number;
+                    $_cus->employer_name = $request->employer_name;
                     $_cus->employer_email = $request->employer_email;
 
                     $_cus->name_of_institution_retired_from = $request->name_of_institution_retired_from;
@@ -382,7 +474,7 @@ class CustomerController extends Controller
                     $_cus->created_by = Auth::user()->id;
                     $_cus->save();
                     
-                    AdminHelper::audit_trail('customer','Employment information updated during registration',$_cus->id);
+                   // AdminHelper::audit_trail('customer','Employment information updated during registration',$_cus->id);
                 
                 }
                  Session::flash('successMessage', "Employment information created successful");
@@ -422,6 +514,11 @@ class CustomerController extends Controller
     {
 
             try{
+
+                if(!$request->first_name || !$request->last_name){
+                   // Session::flash('successMessage', "Customer guarantor created successful");
+                    return redirect('customer/create/loan');
+                }
                 $customer_exist_id = $request->session()->get('customer_registration_id');
                 //Check if customer guarantor exist
                 $customer = Customer_guarantors::where('customer_id',$customer_exist_id)->first();
@@ -455,7 +552,7 @@ class CustomerController extends Controller
 
                     $request->session()->put('customer_guarantor_registration_id', $_cus_g->id);
                     
-                    AdminHelper::audit_trail('customer','Customer guarantor created',$_cus_g->id);
+                    //AdminHelper::audit_trail('customer','Customer guarantor created',$_cus_g->id);
                 }else{
                     //Update Customer guarantor Information
                     Customer_guarantors::where('customer_id',$customer_exist_id)
@@ -480,7 +577,7 @@ class CustomerController extends Controller
                                      'local_government' => $request->local_government
                                     ]);
                                 
-                                AdminHelper::audit_trail('customer','Customer guarantor updated during registration',$customer_exist_id);
+                                //AdminHelper::audit_trail('customer','Customer guarantor updated during registration',$customer_exist_id);
                 
                 }
 
@@ -511,7 +608,7 @@ class CustomerController extends Controller
                 return redirect('customer/create');
             }
 
-            return view('admin.customer.create.loan',compact('branches','products','loan','customer'));
+            return view('admin.customer.create.loan',compact('products','loan','customer'));
 
         }catch (Exception $e) {
             return back();
@@ -538,7 +635,6 @@ class CustomerController extends Controller
                 $request->merge([ 
                     'repayment_instrument' => implode(',', (array) $request->repayment_instrument)
                 ]);
-
                 if($customer == null && !empty($request->session()->get('customer_registration_id'))){
                     //Store Customer Loan
                     $_loan = new Loan();
@@ -548,20 +644,23 @@ class CustomerController extends Controller
                     $_loan->branch_id = $request->branch_id;
                     $_loan->product_id = $request->product_id;
                     $_loan->principal = $request->principal;
-                    $_loan->status = $request->status; 
+                    $_loan->status = "processing"; 
 
                     $_loan->repayment_method = $productInfo->repayment_method;
-                    $_loan->loan_duration = $productInfo->loan_duration;
-                    $_loan->loan_duration_lenght = $productInfo->loan_duration_lenght;
+                    $_loan->loan_duration = 'month';
+                    $_loan->loan_duration_length = $request->loan_duration;
                     $_loan->interest_rate = $productInfo->interest_rate;
+                    $_loan->insurance_charge = $productInfo->insurance_charge;
+                    $_loan->processing_charge = $productInfo->processing_charge;
+
+                    
                     $_loan->repayment_instrument = $request->repayment_instrument; 
 
                     $_loan->disburesment_bank_name = $request->disburesment_bank_name;
                     $_loan->account_name = $request->account_name;
                     $_loan->acount_number = $request->acount_number;
-                    
-
-                    $_loan->confirmation_status = 1;
+                    $_loan->registration_status = true;
+                    $_loan->confirmation_status = 3;
                     $_loan->loan_purpose = $request->loan_purpose;
                     $_loan->save();
 
@@ -569,7 +668,7 @@ class CustomerController extends Controller
 
                     $request->session()->put('customer_loan_registration_id', $_loan->id);
                     
-                    AdminHelper::audit_trail('customer','Customer Loan created',$_loan->id);
+                    AdminHelper::audit_trail('customer','Customer created',$_loan->id);
                     AdminHelper::audit_trail('loan','Loan created',$_loan->id);
                 }else{
                     //Update Customer loan Information
@@ -582,17 +681,21 @@ class CustomerController extends Controller
                                      'status' => $request->status,
                                      'repayment_instrument' => $request->repayment_instrument, 
                                      'repayment_method' => $productInfo->repayment_method,
-                                     'loan_duration' => $productInfo->loan_duration,
-                                     'loan_duration_lenght' => $productInfo->loan_duration_lenght,
-                                     'interest_rate' => $productInfo->interest_rate,
+                                     'loan_duration' => 'month',
+                                     'registration_status' => true,
+                                     'loan_duration_length' => $request->loan_duration,
+                                     //'interest_rate' => $productInfo->interest_rate,
+                                     'insurance_charge' => $productInfo->insurance_charge,
+                                     'processing_charge' => $productInfo->processing_charge,
                                      'disburesment_bank_name' => $request->disburesment_bank_name,
                                      'account_name' => $request->account_name,
                                      'acount_number' => $request->acount_number,
                                      'loan_purpose' => $request->loan_purpose
                                     ]);
                                 
-                                AdminHelper::audit_trail('customer','Customer Loan updated during registration',$customer_exist_id);
-                                AdminHelper::audit_trail('loan','Loan updated during registration',$customer_exist_id);
+       
+                                // AdminHelper::audit_trail('customer','Customer Loan updated during registration',$customer_exist_id);
+                                // AdminHelper::audit_trail('loan','Loan updated during registration',$customer_exist_id);
                 
                 }
                  Session::flash('successMessage', "Loan information created successful");
@@ -621,6 +724,11 @@ class CustomerController extends Controller
             }
 
             $employment = CustomerEmployment::where('customer_id',$customer_exist_id)->first();
+            
+            if(Auth::user()->id = 1){
+              
+                return view('admin.customer.create.file-test', compact('employment'));
+            }
             return view('admin.customer.create.file', compact('employment'));
 
         }catch (Exception $e) {
@@ -636,12 +744,22 @@ class CustomerController extends Controller
      */
     public function storeFile(Request $request)
     {
-       
+      
 
             try{
+                
+                 $this->validate($request, [
+                    // 'id_card' => 'required',
+                    // 'bank_statement' => 'required',
+                    // 'utility_bill' => 'required',
+                    // 'sign.*' => 'required|mimes:jpeg,png,jpg',
+                 ]);
+            
 
                 $customer_exist_id = $request->session()->get('customer_registration_id');
                 
+                
+              
                 //Check if customer employment exist
                 $check = CustomerEmployment::where('customer_id',$customer_exist_id)->first();
                
@@ -665,9 +783,9 @@ class CustomerController extends Controller
                     if($request->hasFile('bank_statement')){ 
                     $bankStatement = time().'bnks.'.request()->bank_statement->getClientOriginalExtension();
                     request()->bank_statement->move(public_path('customerfiles/files/'), $bankStatement);
-                    $path_old_card = "customerfiles/files/".$request->old_bank_statement;  
-                        if(File::exists($path_old_card)) {
-                            File::delete($path_old_card);
+                    $path_old_bank_statement = "customerfiles/files/".$request->old_bank_statement;  
+                        if(File::exists($path_old_bank_statement)) {
+                            File::delete($path_old_bank_statement);
                         }
                      $_cus->bank_statement = $bankStatement;
                     }
@@ -681,10 +799,22 @@ class CustomerController extends Controller
                         }
                      $_cus->utility_bill = $utilityBill;
                     }
+                    
+                    $the_sign = '';
+                    if($request->hasFile('sign')){
+                    $the_sign = time().'sign.'.request()->sign->getClientOriginalExtension();
+                    request()->sign->move(public_path('customerfiles/files/'), $the_sign);
+                    $path_old_sign = "customerfiles/files/".$request->old_sign;  
+                        if(File::exists($path_old_sign)) {
+                            File::delete($path_old_sign);
+                        }
+                     $_cus->sign = $the_sign;
+                    }
+                    
 
                     $the_cheque = '';
                     if($request->hasFile('cheque')){
-                    $the_cheque = time().'utl.'.request()->cheque->getClientOriginalExtension();
+                    $the_cheque = time().'chq.'.request()->cheque->getClientOriginalExtension();
                     request()->cheque->move(public_path('customerfiles/files/'), $the_cheque);
                     $path_old_cheque = "customerfiles/files/".$request->old_cheque;  
                         if(File::exists($path_old_cheque)) {
@@ -706,8 +836,13 @@ class CustomerController extends Controller
                     $_cus->save();
 
                     static::updateRegStatus($request->customer_id,'complete');
+                
+                //Update loan table
+                 $the_loan_id = Loan::where('customer_id',$customer_exist_id)->update(['confirmation_status' => 3]);
+                 
+                //  Loan::where('loan_id',$the_loan_id->id)->update(['confirmation_status' => 3]);
     
-                    AdminHelper::audit_trail('customer','Employment information updated during registration, files saved',$_cus->id);
+                    // AdminHelper::audit_trail('customer','Employment information updated during registration, files saved',$_cus->id);
                     
                 
                 }
@@ -717,14 +852,31 @@ class CustomerController extends Controller
                 $request->session()->forget('customer_loan_registration_id');
 
                  Session::flash('successMessage', "Customer created successful");
-                return redirect('customer/create');
+                 //return redirect('customer/add-card/'.$request->customer_id);
+
+                 return redirect('customer/create');
 
         }catch (Exception $e) {
            return back();
        }
     
     }
+    /**
+     * Display the specified resource.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
+     */
+    public function cardDetails(Request $request)
+    {
+        try{
+            $datas = DB::table('card_instruments')->orderBy('id','DESC')->get();
+            return view('admin.customer.card.card-details', compact('datas'));
 
+        }catch (Exception $e) {
+            return back();
+        }
+    }
     public static function updateRegStatus($cus_id,$status)
     {
         Customer::where('id',$cus_id)->update(['registration_step_status' => $status]);

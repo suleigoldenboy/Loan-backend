@@ -26,7 +26,7 @@ class RegisterController extends Controller
             );
         }catch(Exception $err){
             $errorMessage = $err->getMessage();
-            return invalidRequest(['errorMessage' => $errorMessage]);
+            return jsonResponse(['errorMessage' => $errorMessage]);
         }
         return jsonResponse(['message' => 'Your Registration was successful']);
     }

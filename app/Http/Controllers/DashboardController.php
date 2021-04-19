@@ -18,7 +18,7 @@ use App\Http\Helpers\AdminHelper;
 use App\Models\Account\AccountsChart;
 use App\Models\Account\SubAccountsChart;
 use App\Models\Employee\User;
-use App\Models\HRManagement\Employee;
+use App\Models\HRManagement\Employee; 
 
 
 class DashboardController extends Controller
@@ -53,19 +53,21 @@ class DashboardController extends Controller
         // $loan_start_date = '2020-01-27';
 
         //  $result = RepaymentController::repaymentScheduleCalendar($loan_id,$loan_amount,$interest_rate,$duration,$duration_lenght,$loan_start_date);
-
+        
         //  echo $result;
-
+         
     }
     //get total disburse amount
     public static function getTotalDisburseLoan()
-    {
+    {   
         $total = 0;
-        $result = Loan::where('status','active')->get();
-
+        $result = Loan::where('confirmation_status','active')->get();
+        
         foreach ($result as $data) {
-
-            $total += $data->disbursed_amount;
+            $set_disburse_Amount = $data->disbursed_amount ? $data->disbursed_amount : $data->principal;
+            $total_charge = calPercentageAndDeduction($data->loan_duration_length,$data->insurance_charge,$data->processing_charge,$set_disburse_Amount,7.5);
+            $d_amount = $set_disburse_Amount-$total_charge;
+            $total += $d_amount;
         }
 
         return $total;
@@ -74,35 +76,59 @@ class DashboardController extends Controller
     //get total number running laon
     public static function getRunningLoan()
     {
-        return count(Loan::where('status','active')->get());
+        $id = \DB::table('products')->where('name', 'DEFF')->first()->id;
+        return count(Loan::where('status','active')->where('product_id',$id)->get());
     }
+    
+    public static function getTotalRunningLoan(){
+        return [
+            'total_loan_count' => Loan::where('status','active')->get()->count(),
+            'total_loan' => Loan::where('status','active')->get(),
+            'total_e_request' => Loan::where('customer_request', 1)->where('status','active')->get()->count(),
+            'total_e_request_amount' => Loan::where('customer_request', 1)->where('status','active')->get(),
+        ];
+    }
+    
     //get total running laon amount
     public static function getRunningLoanAmount()
     {
         $total = 0;
-        $result = Loan::where('status','active')->get();
-
+        $id = \DB::table('products')->where('name', 'DEFF')->first()->id;
+        $result = Loan::where('status','active')->where('product_id',$id)->get();
         foreach ($result as $data) {
-
             $total += $data->disbursed_amount ? $data->disbursed_amount : $data->principal;
         }
-
         return $total;
     }
+    
     //get total amount of laon repayment
     public static function getTotalRepayment()
     {
         $total = 0;
         $result = Loan_Repayment::get();
-
         foreach ($result as $data) {
-
             $total += $data->amount;
         }
-
         return $total;
     }
-    //get total interest amount
+     //get total federal running laon amount
+     public static function getRunningFederalLoanAmount()
+     {
+         $total = 0;
+         $id = \DB::table('products')->where('name', 'Federal')->first()->id;
+         $result = Loan::where('status','active')->where('product_id',$id)->get();
+         foreach ($result as $data) {
+             $total += $data->disbursed_amount ? $data->disbursed_amount : $data->principal;
+         }
+         return $total;
+     }
+     //get total number running federal laon
+    public static function getRunningFederalLoan()
+    {
+        $id = \DB::table('products')->where('name', 'Federal')->first()->id;
+        return count(Loan::where('status','active')->where('product_id',$id)->get());
+    }
+    //get total interest amount 
     public static function getTotalInterestAmount()
     {
 
@@ -115,7 +141,27 @@ class DashboardController extends Controller
     //get resent loan borrowers
     public static function getRecentBorrowers()
     {
-        return Customer::orderBy('id', 'desc')->take(4)->get();
+        return Loan::where('status','active')->orderBy('id', 'desc')->take(4)->get();
     }
-
+    public static function riskLoan($id)
+    {
+        return Loan::where('confirmation_status', $id)->get();
+    }
+    public static function exCheckerOne()
+    {
+        return Loan::where('status','approve')->orderBy('id','DESC')->get();
+    }
+    public static function exCheckerTwo()
+    {
+        return Loan::where([['confirmation_status', 'active'], ['status','active'] ])->whereNull('status_paid')->orWhere('status_paid','!=','paid')->orderBy('release_date', 'DESC')->get();
+    }
+    public static function declineLoan(){
+        return Loan::where('confirmation_status','decline')->orderBy('id','DESC')->get();
+    }
+    
+    public static function getStaffRunningLoan(){
+        $id = \DB::table('products')->where('name', 'UKD-Staff Loan')->first()->id;
+        return $requestLoan = Loan::where('product_id', $id)->where('status','active')->get();
+        
+    }
 }

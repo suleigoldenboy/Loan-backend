@@ -7,6 +7,8 @@ use Illuminate\Http\Request;
 use App\Models\Loan\Product;
 use App\Models\Loan\Loan;
 use App\Models\Loan\Loan_Repayment;
+use App\Models\Loan\Loan_Repayment_History;
+use App\Models\Admin\Branch;
 use App\Models\Customer\Customer;
 use App\Http\Helpers\AdminHelper;
 use App\Models\HRManagement\Employee; 
@@ -65,11 +67,21 @@ class AccountsController extends Controller
     {
         try {
            
+            $result = '';
+            if($request->type == "primary"){
+                $result = AccountsChart::where('id',$request->id)->first();
+            }else if($request->type == "sub"){
+                $result = SubAccountsChart::where('id',$request->id)->first();
+            }else{
+                return back();
+            }
+            
             $account_id = $request->id;
             $account_name = $request->name;
             $sub_account_type = $request->type;
-            $gl_code = static::getSubAccGlCode();
+            $gl_code = $result->code.static::getSubAccGlCode($request->id,$request->type);
         
+
             return view('accounting.chart.create-sub', compact('sub_account_type','account_id','account_name','gl_code'));
 
         } catch (Exception $th) {
@@ -82,11 +94,23 @@ class AccountsController extends Controller
      * @param  int  $id
      * return SUN(int) 
      */
-    public static function getSubAccGlCode()
+    public static function getSubAccGlCode($id,$type)
     {
-        $result = SubAccountsChart::get();
+        
+        $result = SubAccountsChart::where('primary_account_id',$id)
+                                   ->where('sub_account_type',$type)->get();
+     
+        $count = count($result);
+        if(count($result) < 1){
+            
+            return count($result).'1';
+        }
+        if(count($result) < 10){
+            $count ++;
+            return '00'.$count;
+        }
 
-        return count($result);
+        return count($result)+1;
     }
 
     /**
@@ -158,7 +182,97 @@ class AccountsController extends Controller
            return back();
          }
     }
+     /**
+     * Store a newly created customer Account in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\Response
+     */
+    public function storeCustomerAccount($customer_id,$customer_name)
+    {
+        try {
+           
+            
+           if (SubAccountsChart::where('customer_id','=',$customer_id)->exists()) {
+           
+                $customer = SubAccountsChart::where('customer_id','=',$customer_id)->first();
+                return $customer->id;
+            }else{
 
+                $pri_account_id = 88;
+                $result = SubAccountsChart::where('id',$pri_account_id)->first();
+                $sub_account_type = 'sub';//sub account
+                $gl_code = $result->code.static::getSubAccGlCode($pri_account_id,$sub_account_type);
+            
+                $comAcc = new SubAccountsChart;
+                $comAcc->primary_account_id = $pri_account_id;
+                $comAcc->sub_account_type = $sub_account_type; 
+                $comAcc->code = $gl_code;
+                $comAcc->name = $customer_name.' ('.$customer_id.') ';
+                $comAcc->transaction_type =  'dr'; //Debit
+                $comAcc->opening_balance = 0;
+                $comAcc->created_by = Auth::user()->id;
+                $comAcc->customer_id = $customer_id;
+                $comAcc->save();
+
+                AdminHelper::audit_trail('sub_account_chart','New Account created',$comAcc->id);
+                return $comAcc->id;
+            }
+ 
+         } catch (Exception $e) {
+           
+           return back();
+         }
+    }
+
+     /**
+     * Store a newly created loan Account in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\Response
+     */
+    public function storeCustomerSubLoanAccount($product,$loan_id,$customer_id,$customer_name)
+    {
+        try {
+           
+            
+           if (SubAccountsChart::where('loan_id','=',$loan_id)->exists()) {
+           
+                $customer = SubAccountsChart::where('loan_id','=',$loan_id)->first();
+                return $customer->id;
+            }else{
+
+                $pri_account_id = 0;
+                if($product == 2){ //Deff Loan
+                    $pri_account_id = 38;
+                }else if($product == 3){//Staff Loan
+                    $pri_account_id = 40;
+                }
+                $result = SubAccountsChart::where('id',$pri_account_id)->first();
+                $sub_account_type = 'sub';//sub account 
+                $gl_code = $result->code.static::getSubAccGlCode($pri_account_id,$sub_account_type);
+            
+                $comAcc = new SubAccountsChart;
+                $comAcc->primary_account_id = $pri_account_id;
+                $comAcc->sub_account_type = $sub_account_type; 
+                $comAcc->code = $gl_code;
+                $comAcc->name = $customer_name.' ('.$customer_id.') ';
+                $comAcc->transaction_type =  'dr'; //Debit
+                $comAcc->opening_balance = 0;
+                $comAcc->created_by = Auth::user()->id;
+                $comAcc->loan_id = $loan_id;
+                $comAcc->save();
+
+                AdminHelper::audit_trail('sub_account_chart','New Account created',$comAcc->id);
+                return $comAcc->id;
+            }
+ 
+         } catch (Exception $e) {
+           
+           return back();
+         }
+    }
+    
     public static function account_balance($account_id='')
     {
 
@@ -178,6 +292,29 @@ class AccountsController extends Controller
       }
     }
 
+  public function genAccountForAllCustomers()
+    {
+       
+        $all_customers = Customer::get();
+
+        foreach ($all_customers as $cus) {
+            
+            //Create customer chart of account
+            $customer_name = $cus->first_name.' '.$cus->last_name.' '.$cus->other_name;
+            static::storeCustomerAccount($cus->id,$customer_name);
+
+            $cus_loans = Loan::where('customer_id', $cus->id)->get();
+            foreach ($cus_loans as $loan) {
+          
+                //create customer loan chart of account
+                static::storeCustomerSubLoanAccount($loan->product_id,$loan->id,$cus->id,$customer_name);
+            }
+            
+
+        }
+        
+        dd('Completed.....');
+    }
     /**
      * Get account balance.
      *
@@ -438,30 +575,200 @@ class AccountsController extends Controller
     {
         
         try {
-
+           
+             $date_rang = '';
+             //Check if reques
+       if (count($request->all())) {
+            
+            //Search by customer name
+            
+                $result_data_loan = Customer::where('first_name', 'LIKE', "%$request->c_name%")
+                        ->orWhere('last_name', 'LIKE', "%$request->c_name%")
+                        ->orWhere('other_name', 'LIKE', "%$request->c_name%")->get();
+            
+            
+            // Get the results and return them.
+                $data_loan = array();
+                foreach($result_data_loan as $val){
+                    $data_loan[] = $val->id;
+                }
+                
+             }else{
+              $data_loan = array();
+            }
+            //dd($data_loan);
+            
+            
+             
+            
+            //Check date search rang
             $data = array();
             $_to = date('Y-m-d', strtotime($request->to));
             $_from = date('Y-m-d', strtotime($request->from));
+           
 
             if($request->from && $request->to){ 
-
-                $data = Loan_Repayment::where('date_paid',$_from)
+                
+                if(count($data_loan) > 0){
+                     
+                    
+                     $data = Loan_Repayment::where('date_paid', '>=', $_from)
+                             //->where('date_paid', '<=', $_to)
                              ->orderBy('date_paid','desc')->get();
-                             
-
-            }else if($request->to && !$request->from){
-
-                $data = Loan_Repayment::where('date_paid', '>=', $_from)
+                             $date_rang = 'From '.convertDateToString($_from).' to '.convertDateToString($_to);
+                       
+                }else{
+                    
+                  
+                     $data = Loan_Repayment::
+                             where('date_paid', '>=', $_from)
                              ->where('date_paid', '<=', $_to)
                              ->orderBy('date_paid','desc')->get();
+                             $date_rang = 'From '.convertDateToString($_from).' to '.convertDateToString($_to);
+                        
+                            
+                }
                 
+                           
+
+            }else if(!$request->to && $request->from){
+                
+                if(count($data_loan) > 0){
+                    $data = Loan_Repayment::whereIn('customer_id',$data_loan)
+                             ->where('date_paid',$_from)
+                             ->orderBy('date_paid','desc')->get();
+                             $date_rang = 'on '.convertDateToString($_from);
+                             
+                }else{
+                     $data = Loan_Repayment::where('date_paid',$_from)
+                             ->orderBy('date_paid','desc')->get();
+                             $date_rang = 'on '.convertDateToString($_from);
+                            
+                }
+            
+            }else if(!$request->to && !$request->from){  
+               if(count($data_loan) > 0){
+                   $data = Loan_Repayment::whereIn('customer_id',$data_loan)->get();
+               }
+                 
             }else{
 
-                $data = Loan_Repayment::orderBy('date_paid','desc')->get();
+                //$data = Loan_Repayment::orderBy('date_paid','desc')->get();
             }
-
             
-            return view('accounting.chart.repayment-report', compact('data'));
+           
+            
+           
+             $branches = '';//Branch::get();
+            // $products = Product::all();
+            $loan_officers = '';//Employee::get();
+            $customers = '';//Customer::get();
+            
+            return view('accounting.chart.repayment-report', compact('data','branches','loan_officers','customers','date_rang'));
+
+
+        } catch (ModelNotFoundException $e) {
+           
+           return back(); 
+        }
+
+    }
+    /**
+     * Show the form for creating a new resource.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function repaymentHistory(Request $request)
+    {
+        
+        try {
+           
+             $date_rang = '';
+             //Check if reques
+       if (count($request->all())) {
+            
+            //Search by customer name
+            
+                $result_data_loan = Customer::where('first_name', 'LIKE', "%$request->c_name%")
+                        ->orWhere('last_name', 'LIKE', "%$request->c_name%")
+                        ->orWhere('other_name', 'LIKE', "%$request->c_name%")->get();
+            
+            
+            // Get the results and return them.
+                $data_loan = array();
+                foreach($result_data_loan as $val){
+                    $data_loan[] = $val->id;
+                }
+                
+             }else{
+              $data_loan = array();
+            }
+            //dd($data_loan);
+            
+            
+             
+            
+            //Check date search rang
+            $data = array();
+            $_to = date('Y-m-d', strtotime($request->to));
+            $_from = date('Y-m-d', strtotime($request->from));
+           
+
+            if($request->from && $request->to){ 
+                
+                if(count($data_loan) > 0){
+                     
+                    
+                     $data = Loan_Repayment_History::whereIn('customer_id',$data_loan)
+                             ->where('date_paid', '>=', $_from)
+                             ->where('date_paid', '<=', $_to)
+                             ->orderBy('date_paid','desc')->get();
+                             $date_rang = 'From '.convertDateToString($_from).' to '.convertDateToString($_to);
+                }else{
+                    
+                  
+                     $data = Loan_Repayment_History::
+                             where('date_paid', '>=', $_from)
+                             ->where('date_paid', '<=', $_to)
+                             ->orderBy('date_paid','desc')->get();
+                             $date_rang = 'From '.convertDateToString($_from).' to '.convertDateToString($_to);
+                            
+                }
+                
+                           
+
+            }else if(!$request->to && $request->from){
+                
+                if(count($data_loan) > 0){
+                    $data = Loan_Repayment_History::whereIn('customer_id',$data_loan)
+                             ->where('date_paid',$_from)
+                             ->orderBy('date_paid','desc')->get();
+                             $date_rang = 'on '.convertDateToString($_from);
+                }else{
+                     $data = Loan_Repayment_History::where('date_paid',$_from)
+                             ->orderBy('date_paid','desc')->get();
+                             $date_rang = 'on '.convertDateToString($_from);
+                }
+            
+            }else if(!$request->to && !$request->from){  
+               if(count($data_loan) > 0){
+                   $data = Loan_Repayment_History::whereIn('customer_id',$data_loan)->get();
+               }
+                 
+            }else{
+
+                //$data = Loan_Repayment_History::orderBy('date_paid','desc')->get();
+            }
+            
+           
+            
+           
+             $branches = '';//Branch::get();
+            // $products = Product::all();
+            $loan_officers = '';//Employee::get();
+            $customers = '';//Customer::get();
+            
+            return view('accounting.chart.repayment-report-history', compact('data','branches','loan_officers','customers','date_rang'));
 
 
         } catch (ModelNotFoundException $e) {

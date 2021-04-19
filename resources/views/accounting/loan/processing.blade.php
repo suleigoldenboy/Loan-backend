@@ -3,6 +3,18 @@
 <div class="col-md-12">
 <div class="col-xl-12 col-md-12 col-sm-12 col-12 layout-top-spacing">
                 <h3 class="text-info"  style="text-align: center;">Confirm Loan Request</h3>
+                <p style="background-color: #FFF; padding:9px; text-align:center;">
+                 @if($get_user_process)
+                   <span class="badge outline-badge-success"> FEDERAL: {{count($data->where('product_id',4)->where('confirmation_status', $get_user_process))}} </span>
+                    <span class="badge outline-badge-info"> DEFF: {{count($data->where('product_id',2)->where('confirmation_status', $get_user_process))}} </span>
+                    <span class="badge outline-badge-primary"> STAFF: {{count($data->where('product_id',3)->where('confirmation_status', $get_user_process))}} </span>
+                    <span class="badge outline-badge-danger"> TOTAL: {{count($data->where('confirmation_status', $get_user_process))}} </span>
+                 @else
+                 <span class="badge outline-badge-success"> FEDERAL: {{count($data->where('product_id',4))}} </span>
+                    <span class="badge outline-badge-info"> DEFF: {{count($data->where('product_id',2))}} </span>
+                    <span class="badge outline-badge-primary"> STAFF: {{count($data->where('product_id',3))}} </span>
+                 @endif
+                </p>
     </div>
     <div class="row layout-top-spacing">
         <?php $progress = 0; ?>
@@ -13,9 +25,11 @@
         <div class="col-md-4 layout-top-spacing">
             @if($req->product['id'] == 3)
             <div class="card component-card_8" style="background-color: #c2d5ff;">
-                            @else
-                           <div class="card component-card_8">
-                            @endif
+            @elseif($req->product['id'] == 4)
+            <div class="card component-card_8" style="border: 1px solid #8dbf42;">
+            @else 
+            <div class="card component-card_8">
+            @endif     
             
                     <div class="card-body">
                         
@@ -43,8 +57,14 @@
                                                 {{$req->customer['last_name']}}
                                             </b>
                                             <br>
-                                            <b>Product:</b> <label class="text-warning">
-                                            {{$req->product['name']}}</label>
+                                            <b>Product:</b> 
+                                            @if($req->product['id'] == 3)
+                                            <span class="badge outline-badge-warning"> {{$req->product['name']}} </span>
+                                            @elseif($req->product['id'] == 4)
+                                            <span class="badge outline-badge-success"> {{$req->product['name']}} </span>
+                                            @else
+                                            <span class="badge outline-badge-info"> {{$req->product['name']}} </span>
+                                            @endif
                                             <br>
                                             <b>@if(request()->id > 3 ) Approve @else Loan @endif Amount:</b> <label class="text-warning">
                                                 @if(request()->id > 3 ) @if($req->disbursed_amount != null )  ₦{{number_format($req->disbursed_amount,2)}} @else ₦{{number_format($req->principal,2)}} @endif @else  ₦{{number_format($req->principal,2)}} @endif  
@@ -115,17 +135,17 @@
                                                 </div>
                                             @else
                                                
-                                                 <a href="{{url('loan/loan/show-request',$req->id)}}" class="badge badge-success" style="float:right;">Confirm</a>
+                                                 <a href="{{url('loan/loan/show-request',$req->id)}}" class="badge badge-success" style="float:right;">View</a>
 
                                             @endif
                                             
                                             @if($req->customer->employment->online_address_confirm_status == "confirmed" && $req->customer->employment->online_file_confirm_status == "confirmed")
-                                                <a href="{{url('loan/loan/show-request',$req->id)}}" class="badge badge-success" style="float:right;">Confirm</a>
+                                                <a href="{{url('loan/loan/show-request',$req->id)}}" class="badge badge-success" style="float:right;">View</a>
                                             @endif
                                             
                                         @else
                                                
-                                        <a href="{{url('loan/loan/show-request',$req->id)}}" class="badge badge-success" style="float:right;">Confirm</a>
+                                        <a href="{{url('loan/loan/show-request',$req->id)}}" class="badge badge-success" style="float:right;">View</a>
 
                                          @endif
                                     </div>

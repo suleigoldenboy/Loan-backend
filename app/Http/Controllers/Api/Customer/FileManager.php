@@ -7,27 +7,92 @@ use App\Models\Customer\Customer;
 use App\Http\Controllers\Controller;
 use App\User\Verification\CustomerVerification;
 use App\Http\Requests\Api\Customer\FileManagerRequest;
-use App\Models\Customer\CustomerEmployment;
 use Exception;
-use Illuminate\Http\JsonResponse;
 
 class FileManager extends Controller
 {
+    /**
+     * Display a listing of the resource.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function index()
+    {
+        //
+    }
+
+    /**
+     * Show the form for creating a new resource.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function create()
+    {
+        //
+    }
+
+    /**
+     * Store a newly created resource in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\Response
+     */
+    public function store(Request $request)
+    {
+        //
+    }
+
+    /**
+     * Display the specified resource.
+     *
+     * @param  \App\Customer  $customer
+     * @return \Illuminate\Http\Response
+     */
+    public function show(Customer $customer)
+    {
+        //
+    }
+
+    /**
+     * Show the form for editing the specified resource.
+     *
+     * @param  \App\Customer  $customer
+     * @return \Illuminate\Http\Response
+     */
+    public function edit(Customer $customer)
+    {
+        //
+    }
+
+    /**
+     * Update the specified resource in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  \App\Customer  $customer
+     * @return \Illuminate\Http\Response
+     */
+    public function update(Request $request, Customer $customer)
+    {
+        //
+    }
+
+    /**
+     * Remove the specified resource from storage.
+     *
+     * @param  \App\Customer  $customer
+     * @return \Illuminate\Http\Response
+     */
+    public function destroy(Customer $customer)
+    {
+        //
+    }
+
     public function addFile(FileManagerRequest $request, CustomerVerification $customer)
     {
-        try{
-
-            $customer->create(array_merge(
-                $this->appendData($request), $request->all()
-            ));
-            user()->update([
-                'id_card_type' => $request->id_card_type,
-                'registration_step_status' => 'document_uploaded',
-            ]);
-            return jsonResponse(['data' => user()]);
-        }catch(\Throwable $th){
-            return  invalidRequest($th->getMessage());
-        }
+        $customer->create(array_merge(
+            $this->appendData($request), $request->all()
+        ));
+        return jsonResponse(['data' => user()]);
     }
 
     public function appendData($request)
@@ -46,54 +111,29 @@ class FileManager extends Controller
             'id_cards' => ($request->file('id_cards')) ? $request->file('id_cards'): null,
             'utility' => ($request->file('utility')) ? $request->file('utility'): null,
             'bankStatement' => ($request->file('bankStatement')) ? $request->file('bankStatement'): null,
-            'signature' => ($request->file('signature')) ? $request->file('signature'): null,
         ];
         $uploaded =[];
         foreach ($documents as $key => $document) {
             if (!empty($document)) {
                 try{
                     $fileName = uniqid().time().'.'.$document->getClientOriginalExtension();
-                    array_push($uploaded, [
-                        $key => [
-                            'name' => $fileName,
-                            'file' =>  base64_encode(file_get_contents($document->path()))
-                        ]
-                    ]);
+                    $file = base64_encode($document);
                     try {
                         $document->move(public_path('customer/verification/documents'), $fileName);
                     } catch (\Throwable $th) {
-                        return $th->getMessage();
+                        throw $th->getMessage();
                     }
+                    array_push($uploaded, [
+                        $key => [
+                            'name' => $fileName,
+                            'file' => $file
+                        ]
+                    ]);
                 }catch(Exception $e){
                     return invalidRequest($e->getMessage());
                 }
             }
         }
         return (empty($uploaded)) ?  ['no_file' => 'File Not Uploaded'] : $uploaded;
-    }
-
-    public function uploadSignature(Request $request):JsonResponse{
-        try {
-            user()->employment()->update([
-                'other_files' => $request->signature
-            ]);
-            return jsonResponse(['data' => user()->name]);
-        } catch (\Throwable $th) {
-            return  invalidRequest($th->getMessage());
-        }
-    }
-
-    public function getUserFile(Request $request){
-        $documents = user()->latestCustomerVerification()->first();
-        $userDocs  = ($documents != null) ? $documents->documents : [];
-        $docs = [
-            'bankStatement' => 'https://loans.ukdiononline.com/customer/verification/documents'.$userDocs[2]['bankStatement']['name'],
-
-            'id_cards' => 'https://loans.ukdiononline.com/customer/verification/documents'.$userDocs[0]['id_cards']['name'],
-
-            'utility' => 'https://loans.ukdiononline.com/customer/verification/documents'.$userDocs[1]['utility']['name'],
-
-        ];
-        return $docs;
     }
 }
