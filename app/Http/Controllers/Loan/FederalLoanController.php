@@ -2,24 +2,25 @@
 
 namespace App\Http\Controllers\Loan;
 
-use Illuminate\Http\Request;
-use App\Http\Controllers\Controller;
-use Cartalyst\Sentinel\Laravel\Facades\Sentinel;
-use App\Models\Customer\Customer;
-use App\Models\Customer\NextOfKin;
-use App\Models\Customer\CustomerEmployment;
-use App\Models\Admin\Branch;
-use App\Models\Loan\Product;
-use App\Models\Loan\Loan;
-use App\Models\Employee\User;
-use App\Models\HRManagement\Employee; 
-use App\Models\Customer\Customer_guarantors;
-use App\Http\Helpers\AdminHelper;
-use Hash;
+use DB;
 use Auth;
 use File;
+use Hash;
 use Session;
-use DB;
+use App\Models\Loan\Loan;
+use App\Models\Admin\Branch;
+use App\Models\Loan\Product;
+use Illuminate\Http\Request;
+use App\Models\Employee\User;
+use App\Http\Helpers\AdminHelper;
+use App\Models\Customer\Customer;
+use App\Models\Customer\NextOfKin;
+use App\Http\Controllers\Controller;
+use App\Models\HRManagement\Employee; 
+use Illuminate\Support\Facades\Validator;
+use App\Models\Customer\CustomerEmployment;
+use App\Models\Customer\Customer_guarantors;
+use Cartalyst\Sentinel\Laravel\Facades\Sentinel;
 
 class FederalLoanController extends Controller
 {
@@ -86,56 +87,60 @@ class FederalLoanController extends Controller
     public function store(Request $request)
     {
         try{ 
-      
+            
+                \Log::info($request);
             //Check if customer exist
-            $customer_exist_id = $request->session()->get('customer_registration_id');
-            $customer = Customer::where('id',$customer_exist_id)->first();
-
-            if($customer == null){ 
-                //dd('empty: '.$request->email);
-                $this->validate($request, [
-                    'email' => 'required|string|email|max:100|unique:customers',
-                    'phone_number' => 'required|regex:/^([0-9\s\-\+\(\)]*)$/|min:11',
+            $customer = Customer::where('id',$request->customer_update_id )->first();
+            if($customer == null){ //means first time applicant
+                $validator = Validator::make($request->all(), [
+                    'email' => 'required|string|email|unique:customer|max:100|unique:customers',
+                    'phone_number' => 'required|unique:customer|regex:/^([0-9\s\-\+\(\)]*)$/|min:11',
+                    'iips' => 'required|unique:customer_income_details',
+                    'bvn' => 'required|unique:customer_income_details',
                 ]);
-                //Store Customer Information
-                $_cus = new Customer();
-                $_cus->loan_officer_id = $request->loan_officer_id;
-                $_cus->branch_id = $request->branch_id;
-                $_cus->first_name = $request->first_name;
-                $_cus->last_name = $request->last_name;
-                $_cus->other_name = $request->other_name;
-                $_cus->username = $request->email;
-                $_cus->email = $request->email;
-                $_cus->password = Hash::make('secret');
-                $_cus->phone_number = $request->phone_number;
-                $_cus->address = $request->address;
-                $_cus->uuid = random_int(1, 98898);
-                $_cus->bvn_phone_number = $request->phone_number;
-                $_cus->email_verified_at = $request->email_verified_at;
-                $_cus->bvn_verified = 0;
-                $_cus->name_is_verified = $request->name_is_verified;
-                $profilpic = '';
-                if($request->hasFile('avatar')){
-                $profilpic = time().'.'.request()->avatar->getClientOriginalExtension();
-                request()->avatar->move(public_path('customerfiles/profilepicture/'), $profilpic);
+                if ($validator->fails()) {
+                    return back()->withErrors($validator);
+                }else{
+                    //Store Customer Information
+                    $_cus = new Customer();
+                    $_cus->loan_officer_id = $request->loan_officer_id;
+                    $_cus->branch_id = $request->branch_id;
+                    $_cus->first_name = $request->first_name;
+                    $_cus->last_name = $request->last_name;
+                    $_cus->other_name = $request->other_name;
+                    $_cus->username = $request->email;
+                    $_cus->email = $request->email;
+                    $_cus->password = Hash::make('secret');
+                    $_cus->phone_number = $request->phone_number;
+                    $_cus->address = $request->address;
+                    $_cus->uuid = random_int(1, 98898);
+                    $_cus->bvn_phone_number = $request->phone_number;
+                    $_cus->email_verified_at = $request->email_verified_at;
+                    $_cus->bvn_verified = 0;
+                    $_cus->name_is_verified = $request->name_is_verified;
+                    $profilpic = '';
+                    if($request->hasFile('avatar')){
+                    $profilpic = time().'.'.request()->avatar->getClientOriginalExtension();
+                    request()->avatar->move(public_path('customerfiles/profilepicture/'), $profilpic);
+                    }
+                    $_cus->avatar = $profilpic;
+                    $_cus->marital_status = $request->marital_status;
+                    $_cus->religion = $request->religion;
+                    $_cus->religion_address = $request->religion_address;
+                    $_cus->religion_center_name = $request->religion_center_name;
+                    $_cus->date_of_birth = $request->date_of_birth;
+                    $_cus->gender = $request->gender;
+                    $_cus->occupation = $request->occupation;
+                    $_cus->state = $request->state;
+                    $_cus->lga = $request->lga;
+                    $_cus->id_card_type = $request->id_card_type;
+                    $_cus->id_card_number = $request->id_card_number;
+                    $_cus->registration_step_status = 'general_info';
+                    $_cus->status = 'pending';
+                    $_cus->created_by = Auth::user()->id;
+                    $_cus->save();
                 }
-                $_cus->avatar = $profilpic;
-                $_cus->marital_status = $request->marital_status;
-                $_cus->religion = $request->religion;
-                $_cus->religion_address = $request->religion_address;
-                $_cus->religion_center_name = $request->religion_center_name;
-                $_cus->date_of_birth = $request->date_of_birth;
-                $_cus->gender = $request->gender;
-                $_cus->occupation = $request->occupation;
-                $_cus->state = $request->state;
-                $_cus->lga = $request->lga;
-                $_cus->id_card_type = $request->id_card_type;
-                $_cus->id_card_number = $request->id_card_number;
-                $_cus->registration_step_status = 'general_info';
-                $_cus->status = 'pending';
-                $_cus->created_by = Auth::user()->id;
-                $_cus->save();
-               
+                
             }else{
                 
                 //Update Customer Information
@@ -160,8 +165,8 @@ class FederalLoanController extends Controller
                     
                 $profilpic = time().'.'.request()->new_avatar->getClientOriginalExtension();
                 request()->new_avatar->move(public_path('customerfiles/profilepicture/'), $profilpic);
-                 $image_path1 = "customerfiles/profilepicture".$request->old_avatar;  
-                 if(File::exists($image_path1)) {
+                    $image_path1 = "customerfiles/profilepicture".$request->old_avatar;  
+                    if(File::exists($image_path1)) {
                     File::delete($image_path1);
                 }
                 $_cus->avatar = $profilpic;
@@ -183,25 +188,25 @@ class FederalLoanController extends Controller
                 
                 //Save audit trail
                 //AdminHelper::audit_trail('customer','General information updated during registration',$_cus->id);
-          
+            
             }
 
             
             $this->storeEmployment($request,$_cus->id);//Store Employement
             $this->storeLoan($request,$_cus->id);//Store Loan
             $this->storeNextOfKin($request,$_cus->id);/// Store next of kin
-           
-             //Save audit trail
+            
+                //Save audit trail
             AdminHelper::audit_trail('customer','New Customer created',$_cus->id);
-          
-           
-             Session::flash('successMessage', "Loan created successful");
+            
+            
+                Session::flash('successMessage', "Loan created successful");
             return redirect('customer/create/completed');
 
         }catch (Exception $e) {
-           
-           return back();
-       }
+            
+            return back();
+        }
     }
      /**
      * Store a newly created resource in storage.
@@ -263,7 +268,9 @@ class FederalLoanController extends Controller
 
                 //Check if customer employment exist
                 $customer_exist_id = $request->session()->get('customer_registration_id');
-                $check = CustomerEmployment::where('customer_id',$customer_exist_id)->first();      
+                $check = CustomerEmployment::where('customer_id',$customer_exist_id)
+                                            //->orWhere('iips',$request->ipps)
+                                            ->first();      
                 if($check == null){
                     //Store Customer Information
                     $_cus = new CustomerEmployment();

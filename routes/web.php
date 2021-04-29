@@ -135,6 +135,12 @@ Route::group(['middleware' => ['adminlog']], function () {
 
         Route::get('view/in-complete-reg', 'Customer\CustomerController@incompleteReg');
         Route::get('registration/continue/{id}/{type}', 'Customer\CustomerController@completeReg');
+        
+         /***  Federal Loan Route */
+    Route::get('create/federal', 'Loan\FederalLoanController@create');
+    Route::post('store/federal', 'Loan\FederalLoanController@store');
+    Route::get('create/completed', 'Loan\FederalLoanController@completed');
+    Route::get('registration/continue/federal/{id}/{loan_id}/{type}', 'Loan\FederalLoanController@create');
     });
 
     //route for privileges
@@ -190,6 +196,11 @@ Route::group(['middleware' => ['adminlog']], function () {
         Route::get('/create/sub/{id}/{type}/{name}', 'Account\AccountsController@create');
         Route::post('/chart/sub/store', 'Account\AccountsController@storeSub');
 
+        //start General ledger reporting
+        Route::get('/glreportsettings', 'Account\GeneralLedgerController@glReportSettings');
+        Route::get('/create-glreportsettings', 'Account\GeneralLedgerController@createGlReportSettings');
+        Route::post('/store-glreportsettings', 'Account\GeneralLedgerController@storeGeneralLegderReportSettings');
+        //end General ledger reporting
 
         Route::get('/general/ledger', 'Account\AccountsController@ledger');
         Route::get('/general/ledger/details', 'Account\AccountsController@ledgerDetails');
@@ -197,6 +208,7 @@ Route::group(['middleware' => ['adminlog']], function () {
         Route::get('/expense/report', 'Account\AccountsController@expenseReport');
         Route::get('/disburse/report', 'Account\AccountsController@disburseReport');
         Route::get('/repayment/report', 'Account\AccountsController@repaymentReport');
+        Route::get('/repayment-history', 'Account\AccountsController@repaymentHistory');
 
 
         // Route::get('/edit/{id}', 'Account\AccountsController@show');

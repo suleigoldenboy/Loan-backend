@@ -11,16 +11,20 @@
                             <div class="row">
                                   
                               <!-- Start General Information-->
+                              @if ($errors->any())
+                                    <div class="alert alert-danger">
+                                        <ul>
+                                            @foreach ($errors->all() as $error)
+                                                <li>{{ $error }}</li>
+                                            @endforeach
+                                        </ul>
+                                    </div>
+                                @endif
                                 <div class="col-xl-12 col-lg-12 col-md-12 layout-spacing">
                                     <div id="general-info" class="section general-info">
                                         <div class="info">
                                         <h3 class="text-secondary" style="text-align:center;">CREATE FEDERAL LOAN</h3>
-                                        @if ($errors->has('email'))
-                                            <span class="text-danger">{{ $errors->first('email') }}</span><br>
-                                        @endif
-                                        @if ($errors->has('phone_number'))
-                                            <span class="text-danger">{{ $errors->first('phone_number') }}</span>
-                                        @endif
+                                     
                                             <h6 class="text-info">PERSONAL  INFORMATION</h6>
                                             <div class="row">
                                                 <div class="col-lg-11 mx-auto">
@@ -39,6 +43,9 @@
                                                         </div>
                                                         <div class="col-xl-10 col-lg-12 col-md-8 mt-md-0 mt-4">
                                                             <div class="form">
+                                                               
+                                                                 <input type="hidden" name="customer_update_id" value="{{$customer ? $customer->id : 000 }}" required>
+                                                               
                                                             <div class="form-group">
                                                                     <!-- <label for="profession">Branch</label>  -->
                                         @if(can('Branch Registration'))
@@ -61,7 +68,7 @@
                                                                     <label >Loan Officer</label>
                            
                                                                     <input type="hidden" name="loan_officer_id" value="{{Auth::user()->id}}" required>
-                                                                        <input type="text"  value="{{Auth::user()->first_name}} {{Auth::user()->last_name}}" class="form-control  basic" readonly required>
+                                                                        <input type="text"  value="{{Auth::user()->first_name}} {{Auth::user()->last_name}}" class="form-control" readonly required>
                                                                 </div>
                                                                 <div class="row">
                                                                     
@@ -200,7 +207,6 @@
                                     </div>
                                 </div>
                               <!-- End contact Information-->
-                              
                               <!-- Start next of kin Information-->
                               <div class="col-xl-12 col-lg-12 col-md-12 layout-spacing" style="margin-top:20px;">
                                     <div id="general-info" class="section general-info">
@@ -225,14 +231,14 @@
                                                                         </div>
                                                                         <div class="form-group">
                                                                             <label >Mobile Number</label>
-                                                                            <input type="text" class="form-control mb-4" name="next_of_kin_phone_number" placeholder="Mobile Number" value="{{$nextOfKin  ? $nextOfKin->phone_number : old('next_of_kin_phone_number') }}" required>
+                                                                            <input type="text" class="form-control mb-4" name="next_of_kin_phone_number" placeholder="Mobile Number" value="{{$nextOfKin ? $nextOfKin->phone_number : old('next_of_kin_phone_number') }}" required>
                                                                             @if ($errors->has('next_of_kin_phone_number'))
                                                                                 <strong class="text-danger">{{ $errors->first('next_of_kin_phone_number') }}</strong>
                                                                             @endif
                                                                        </div>
                                                                        <div class="form-group">
                                                                             <label >Relationship</label>
-                                                                            <input type="text" class="form-control mb-4" name="next_of_kin_relationship" placeholder="Relationship" value="{{$nextOfKin  ? $nextOfKin->relationship : old('next_of_kin_relationship') }}" required>
+                                                                            <input type="text" class="form-control mb-4" name="next_of_kin_relationship" placeholder="Relationship" value="{{$nextOfKin ? $nextOfKin->relationship : old('next_of_kin_relationship') }}" required>
                                                                         </div>
                                                                     </div>
                                                                     <div class="col-sm-6">
@@ -242,14 +248,14 @@
                                                                         </div>
                                                                         <div class="form-group">
                                                                             <label >Email</label>
-                                                                            <input type="email" class="form-control mb-4" name="next_of_kin_email" placeholder="Email Address" value="{{$nextOfKin  ? $nextOfKin->email : old('next_of_kin_email') }}" required>
+                                                                            <input type="email" class="form-control mb-4" name="next_of_kin_email" placeholder="Email Address" value="{{$nextOfKin ? $nextOfKin->email : old('next_of_kin_email') }}" required>
                                                                              @if ($errors->has('next_of_kin_email'))
                                                                              <span class="text-danger">{{ $errors->first('next_of_kin_email') }}</span>
                                                                              @endif
                                                                         </div>
                                                                         <div class="form-group">
                                                                             <label for="">Occupation</label>
-                                                                            <input type="text" class="form-control mb-4" name="next_of_kin_occupation" placeholder="Occupation" value="{{$nextOfKin ? $nextOfKin->Occupation : old('next_of_kin_occupation')  }}">
+                                                                            <input type="text" class="form-control mb-4" name="next_of_kin_occupation" placeholder="Occupation" value="{{$nextOfKin ? $nextOfKin->occupation : old('next_of_kin_occupation')  }}">
                                                                         </div>
                                                                     </div>
                                                                
@@ -288,29 +294,42 @@
                                                                     <div class="col-sm-6">
                                                                       <div class="form-group">
                                                                             <label >IPPIS NUMBER</label>
-                                                                            <input type="text" class="form-control mb-4" name="ippis" placeholder="IPPIS NUMBER" value="{{$customer ? $customer->employment->ippis : old('ippis') }}" required>
+                                                                            <input type="text" class="form-control mb-4" name="iips" placeholder="IPPIS NUMBER" value="{{$employment ? $employment->iips : old('iips') }}"  required>
                                                                         </div>
                                                                         <div class="form-group">
                                                                             <label >Ministry/MDA</label>
-                                                                            <select name="ministry_mda" class="form-control" required>
+                                                                            <select name="ministry_mda" class="form-control basic" required>
+                                                                                @if($employment)
+                                                                                <option value="{{$employment->ministry_mda}}">{{$employment->ministry_mda}}</option>
+                                                                                @endif
                                                                             @include('inc.ministry-list')
                                                                             </select>
                                                                        </div>
+                                                                       
+                                                                       
+                                                                       <!--<div class="form-group">-->
+                                                                       <!--      <label>Other Ministry</label>-->
+                                                                       <!--    <input type="text" class="form-control basic" name="ministry_mda" placeholder="Enter ministry not in list">-->
+                                                                       <!--</div>-->
+                                                                          
+                                                                      
+                                                                        <!--addition end-->
+                                                                       
                                                                        <div class="form-group">
                                                                             <label >Department</label>
-                                                                            <input type="text" class="form-control mb-4" name="employment_department" placeholder="Department" value="{{$customer ? $customer->employment->department : old('department') }}" required>
+                                                                            <input type="text" class="form-control mb-4" name="employment_department" placeholder="Department" value="{{$employment ? $employment->employment_department : old('department') }}" required>
                                                                         </div>
                                                                     </div>
                                                                     <div class="col-sm-6">
                                                                     <div class="form-group">
                                                                             <label >NET INCOME</label>
-                                                                            <input type="number" class="form-control mb-4" name="monthly_net_pay" placeholder="NET INCOME" value="{{$customer ? $customer->employment->monthly_net_pay : old('monthly_net_pay') }}" step="0.1" required>
+                                                                            <input type="number" class="form-control mb-4" name="monthly_net_pay" placeholder="NET INCOME" step="0.1" value="{{$employment ? $employment->monthly_net_pay : old('monthly_net_pay') }}" required>
                                                                         </div>
                                                                         <div class="form-group">
                                                                                 <label >Pay Day</label>
                                                                                 <select name="salary_pay_day" class="form-control" required>
-                                                                                    @if ($customer)
-                                                                                        <option value="{{$customer->salary_pay_day}}">day {{$customer->salary_pay_day}}</option>
+                                                                                    @if ($employment)
+                                                                                        <option value="{{$employment->salary_pay_day}}">day {{$employment->salary_pay_day}}</option>
                                                                                     @endif
                                                                                     <option value="">Select</option>
                                                                                     @for ($i = 1; $i < 32; $i++)
@@ -320,7 +339,7 @@
                                                                             </div>
                                                                         <div class="form-group">
                                                                             <label for="">Employement Date</label>
-                                                                            <input type="date" class="form-control mb-4" name="joined_date" value="{{$customer ? $customer->employment->joined_date : old('joined_date') }}"  required>
+                                                                            <input type="date" class="form-control mb-4" name="joined_date" required>
                                                                         </div>
                                                                     </div>
                                                                
@@ -354,21 +373,27 @@
                                                                     <div class="col-sm-6">
                                                                         <div class="form-group">
                                                                             <label >Disburesment Bank Name</label>
-                                                                            <select name="disburesment_bank_name" class="form-control  basic" readonly required>
+                                                                            <select name="disburesment_bank_name" class="form-control  basic" required>
+                                                                            @if($loan && $loan->loans_with_other_banks)
+                                                                                <option value="{{$loan->disburesment_bank_name}}">{{$loan->disburesment_bank_name}}</option>
+                                                                            @endif
                                                                             @include('inc.bank-list')
                                                                             </select>
+                                                                            
+                                                                           <!--<br> <label >Other Bank</label>-->
+                                                                           <!--<input type="text" class="form-control basic" name="disburesment_bank_name" placeholder="Enter bank not in list">-->
                                                                         </div>
                                                                         <div class="form-group">
                                                                             <label >Account Name</label>
-                                                                            <input type="text" name="salary_account_name" class="form-control" placeholder="Bank Name" value="{{$loan ? $loan->account_name : old('account_name') }}" required>
+                                                                            <input type="text" name="salary_account_name" class="form-control" value="{{$employment ? $employment->salary_account_name : old('salary_account_name') }}"  placeholder="Bank Name" required>
                                                                         </div>
                                                                          <div class="form-group">
                                                                             <label >Account Number</label>
-                                                                            <input type="number" name="salary_account_number" class="form-control" placeholder="Account Number" value="{{$loan ? $loan->acount_number : old('acount_number') }}" required>
+                                                                            <input type="number" name="salary_account_number" class="form-control" value="{{$employment ? $employment->salary_account_number : old('salary_account_name') }}"  placeholder="Account Number" required>
                                                                         </div>
                                                                         <div class="form-group">
                                                                             <label >BVN</label>
-                                                                            <input type="number" name="bvn" class="form-control" placeholder="BVN" value="{{$customer ? $customer->employment->bvn : old('bvn') }}" required>
+                                                                            <input type="number" name="bvn" class="form-control" placeholder="BVN"  value="{{$employment ? $employment->bvn : old('bvn') }}" required>
                                                                         </div>
                                                                         <div class="form-group">
                                                                             <!-- <label >Collateral</label>
@@ -378,7 +403,7 @@
                                                                     <div class="col-sm-6">
                                                                     <div class="form-group"> 
                                                                             <label >Product</label>
-                                                                             <select name="product_id" id="product_id" class="form-control  basic" readonly required>
+                                                                             <select name="product_id" id="product_id" class="form-control" required>
                                                                                
                                                                                     @foreach ($products as $product)
                                                                                         @if($product->id == 4)
@@ -395,7 +420,7 @@
                                                                         <div class="form-group"> 
                                                                             <label >Loan Duration</label>
                                                                             <select name="loan_duration" id="loan_duration" onchange="calMaxLoanOffer()" class="form-control" required>
-                                                                                 <option value="">Select Duration</option>
+                                                                                 <option value="{{$loan ? $loan->loan_duration_length : '' }}">{{$loan ? $loan->loan_duration_length : "Select Duration" }}</option>
                                                                                 @for ($i = 6; $i < 19; $i++)
                                                                                     <option value="{{$i}}">{{$i}} Months</option>
                                                                                 @endfor
@@ -403,15 +428,19 @@
                                                                         </div>
                                                                         <div class="form-group">
                                                                             <label >Loan Amount</label>
-                                                                            <input type="number" name="principal" id="principal" onkeyup="calMaxLoanOffer2()" max="" class="form-control" placeholder="Principal Amount" value="{{$loan ? $loan->principal : old('principal') }}" required>
+                                                                            <input type="number" name="principal" id="principal" onkeyup="calMaxLoanOffer2()" max="" value="{{$loan ? $loan->principal : old('principal') }}" class="form-control" placeholder="Principal Amount" required>
                                                                             <label id="max_loan_msg" class="text-danger"></label>
                                                                         </div>
                                                                         <div class="form-group"> 
                                                                             <label >Loans with other Banks?</label>
                                                                              <select name="loans_with_other_banks" class="form-control  basic" required>
+                                                                            @if($loan && $loan->loans_with_other_banks)
+                                                                                <option value="{{$loan->loans_with_other_banks}}">{{$loan->loans_with_other_banks}}</option>
+                                                                            @endif
                                                                              <option value="">Select</option>
                                                                              <option value="YES">YES</option>
                                                                              <option value="NO">NO</option>
+                                                                             
                                                                             </select>
                                                                         </div>
                                                                         <div class="form-group">
@@ -429,8 +458,7 @@
                                     </div>
                                 </div>
                               <!-- End Loan Information-->
-
-                               <!-- Start File Upload -->
+                                   <!-- Start File Upload -->
                                <div class="col-xl-12 col-lg-12 col-md-12 layout-spacing" style="margin-top:20px;">
                                     <div id="general-info" class="section general-info">
                                         <div class="info">
@@ -453,7 +481,7 @@
                                                                                                 @if ($employment)
                                                                                                 <input type="file" name="file_uploads" class="form-control-file" >
                                                                                                 @else
-                                                                                                <input type="file" name="file_uploads"  class="form-control-file" onChange="check_if_all_files_uploaded()" required>
+                                                                                                <input type="file" name="file_uploads"  class="form-control-file" required>
                                                                                                 @endif
                                                                                                 @if ($employment)
                                                                                                     <input type="hidden" name="old_file_uploads" value="{{$employment->file_uploads}}">
@@ -464,7 +492,7 @@
                                                                                                         <a class="btn btn-primary" data-toggle="modal" data-target="#exampleModal_file_uploads">Open File</a>
 
                                                                                                      @else
-                                                                                                        <img src="{{ asset('customerfiles/files')}}/{{$employment->file_uploads}}" title="view image" style="width:70px; hieght:70px; cursor:pointer;" data-toggle="modal" data-target="#exampleModal_other_files">
+                                                                                                        <img src="{{ asset('customerfiles/files')}}/{{$employment->file_uploads}}" title="view image" style="width:70px; hieght:70px; cursor:pointer;" data-toggle="modal" data-target="#exampleModal_file_uploads">
                                                                                                      @endif
                                                                                                     </div>
                                                                                                     <div class="modal fade bd-example-modal-xl" id="exampleModal_file_uploads" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
@@ -529,6 +557,7 @@
                                 </div>
                               <!-- End File Upload-->
                                 
+                                
 
 
                                 <div class="col-xl-12 col-lg-12 col-md-12 layout-spacing" style="margin-top:20px;">
@@ -551,6 +580,9 @@
 
 <script>
 
+var ss = $(".basic").select2({
+    tags: true,
+});
 
  function calculateAge(){
     var dbo = document.getElementById("basicFlatpickr").value;

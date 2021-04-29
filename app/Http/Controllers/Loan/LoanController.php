@@ -367,7 +367,6 @@ class LoanController extends Controller
      */
     public function loanRequestStatus()
     {
-
                   $datas = Loan::whereNull('status')
                     ->orderBy('id','DESC')->get();
 
